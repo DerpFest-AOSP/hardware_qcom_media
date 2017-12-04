@@ -2226,6 +2226,7 @@ bool venc_dev::venc_set_param(void *paramData, OMX_INDEXTYPE index)
                         return false;
                     } else {
                         if ((pParam->eProfile != OMX_VIDEO_AVCProfileBaseline) &&
+                            (pParam->eProfile != (OMX_VIDEO_AVCPROFILETYPE) OMX_VIDEO_AVCProfileConstrainedBaseline) &&
                             (pParam->eProfile != (OMX_VIDEO_AVCPROFILETYPE) QOMX_VIDEO_AVCProfileConstrainedBaseline)) {
                             if (pParam->nBFrames) {
                                 bFrames = pParam->nBFrames;
@@ -3929,17 +3930,19 @@ bool venc_dev::venc_color_align(OMX_BUFFERHEADERTYPE *buffer,
         src_buf += width * height;
         dst_buf += y_stride * y_scanlines;
         for (int line = height / 2 - 1; line >= 0; --line) {
+            /* Align the length to 16 for better memove performance. */
             memmove(dst_buf + line * uv_stride,
                     src_buf + line * width,
-                    width);
+                    ALIGN(width, 16));
         }
 
         dst_buf = src_buf = buffer->pBuffer;
         //Copy the Y next
         for (int line = height - 1; line > 0; --line) {
+            /* Align the length to 16 for better memove performance. */
             memmove(dst_buf + line * y_stride,
                     src_buf + line * width,
-                    width);
+                    ALIGN(width, 16));
         }
     } else {
         DEBUG_PRINT_ERROR("Failed to align Chroma. from %u to %u : \
@@ -5306,9 +5309,11 @@ bool venc_dev::venc_set_profile_level(OMX_U32 eProfile,OMX_U32 eLevel)
     } else if (m_sVenc_cfg.codectype == V4L2_PIX_FMT_H264) {
         if (eProfile == OMX_VIDEO_AVCProfileBaseline) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedBaseline) {
+        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedBaseline ||
+                  eProfile == OMX_VIDEO_AVCProfileConstrainedBaseline) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
-        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedHigh) {
+        } else if(eProfile == QOMX_VIDEO_AVCProfileConstrainedHigh ||
+                  eProfile == OMX_VIDEO_AVCProfileConstrainedHigh) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH;
         } else if (eProfile == OMX_VIDEO_AVCProfileMain) {
             requested_profile.profile = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
